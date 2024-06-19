@@ -1,0 +1,13 @@
+name = "local_POD_overlap"
+uuid = "628fde85-ca0f-48a3-bc45-f0c11310a56c"
+authors = ["tobyvg <tobyvangastelen@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.9"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
