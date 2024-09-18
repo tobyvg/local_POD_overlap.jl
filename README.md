@@ -30,4 +30,4 @@ larger time steps.
 
 ## How to run
 
-The Tutorial.ipynb can be run using Jupyter Notebook. Corresponding paper can be found at [here](https://arxiv.org/abs/2409.08793v1).
+The Experiments.ipynb file can be run using Jupyter Notebook. This file reproduces the results presented in the paper, which can be found [here](https://arxiv.org/abs/2409.08793v1).
