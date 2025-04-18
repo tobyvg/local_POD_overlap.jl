@@ -55,6 +55,11 @@ k = kernel(10)       # Generates a kernel of length 10
 function kernel(n)
     eval = collect(1:n) .- 1/2
     return sin.(pi/(n)*eval).^(2)
+    #buffer_size = 5
+    #buffer = collect(0:buffer_size)/buffer_size
+    #to_return = ones(n)
+    #to_return[1:buffer_size+1] .= buffer
+    #return to_return .* reverse(to_return)
 end
 
 
