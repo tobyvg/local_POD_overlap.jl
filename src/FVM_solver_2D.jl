@@ -3,10 +3,14 @@ using FFTW
 using CUDA
 using Flux
 using NNlib
+using Zygote
 
 
 
-export gen_setup,gen_rhs, project_divergence
+export gen_setup,gen_rhs, project_divergence,gen_rhs_advection_equation,stop_gradient
+
+stop_gradient(f) = f()
+Zygote.@nograd stop_gradient
 
 function padding(data,pad_size)
 
@@ -180,6 +184,73 @@ struct operators_struct
     w
 end
 
+struct operators_struct_advection_equation
+    D
+	A
+	C
+end
+
+
+function gen_operators_uniform_advection_equation(mesh)
+    dims = mesh.dims
+    use_GPU = mesh.use_GPU
+    h = CUDA.@allowscalar(mesh.dx[1])
+
+
+	UPC = 1
+
+    @assert dims < 3 "Convection for dims = 3 is not yet supported"
+
+    stenc_3 = zeros(([3 for i in 1:dims]...))
+    select = [(:);[2 for i in 1:dims-1]]
+
+
+	D = Conv(([3 for i in 1:dims]...,), UPC=>UPC,stride = ([1 for i in 1:dims]...,),pad = 0,bias =false)  # First convolution, operating upon a 28x28 image
+
+    for i in 1:UPC
+        for j in 1:UPC
+            stencil = copy(stenc_3)
+            if i == j
+                for k in 1:dims
+                    stencil[circshift(select,(k-1,))...] += (1/(h^2)) * [1,-2,1]
+                end
+            end
+            D.weight[[(:) for k in 1:dims]...,i,j] .= stencil
+        end
+    end
+
+
+	A = Conv(([3 for i in 1:dims]...,), UPC=>2,stride = ([1 for i in 1:dims]...,),pad = 0,bias =false)  # First convolution, operating upon a 28x28 image
+    for i in 1:2
+
+        stencil = copy(stenc_3)
+
+        stencil[circshift(select,(i-1,))...] .=  [0,1/2,1/2]
+
+        A.weight[[(:) for k in 1:dims]...,1,i] .= stencil
+
+    end
+
+
+	C = Conv(([3 for i in 1:dims]...,), 2=>UPC,stride = ([1 for i in 1:dims]...,),pad = 0,bias =false)  # First convolution, operating upon a 28x28 image
+    for i in 1:2
+        stencil = copy(stenc_3)
+
+        stencil[circshift(select,(i-1,))...] .= 1/h * [1,-1,0]
+        C.weight[[(:) for k in 1:dims]...,i,1] .= stencil
+    end
+
+
+
+    if use_GPU
+        D = D |> gpu
+        A = A |> gpu
+        C = C |> gpu
+    end
+
+    return operators_struct_advection_equation(D,A,C)#,Q,Q_T,D
+end
+
 
 function gen_operators_uniform(mesh)
     dims = mesh.dims
@@ -189,7 +260,7 @@ function gen_operators_uniform(mesh)
 
     UPC = mesh.UPC
 
-    @assert dims != 3 "Convection for dims = 3 is not yet supported"
+    @assert dims < 3 "Convection for dims = 3 is not yet supported"
 
     stenc_3 = zeros(([3 for i in 1:dims]...))
     select = [(:);[2 for i in 1:dims-1]]
@@ -338,6 +409,7 @@ end
 
 struct setup_struct
     O
+	O_adv
     PS
     GS
     mesh
@@ -346,11 +418,11 @@ end
 function gen_setup(mesh)
 
     O = gen_operators_uniform(mesh)
-
+	O_adv = gen_operators_uniform_advection_equation(mesh)
     PS = gen_pressure_solver(mesh,O)
     GS = gen_grid_swapper(mesh)
 
-    return setup_struct(O,PS,GS,mesh)
+    return setup_struct(O,O_adv,PS,GS,mesh)
 end
 
 function project_divergence(field,setup;iterations = 3)
@@ -361,6 +433,55 @@ function project_divergence(field,setup;iterations = 3)
         field = field-Gp
     end
     return field
+end
+
+
+function gen_rhs_advection_equation(setup;V = 0,F =0,viscosity = 0)
+
+    dims = setup.mesh.dims
+
+    if F == 0
+        F = 0 * setup.mesh.omega
+    end
+
+    if V == 0
+        V = 0 * setup.mesh.omega[[(:) for i in 1:dims]...,1:1,:]
+    end
+
+    T = stop_gradient() do
+        typeof(CUDA.@allowscalar(setup.mesh.dx[1]))
+    end
+
+    F = T.(F)
+    V = T.(V)
+
+    function rhs(q,mesh,t;viscosity = viscosity,setup = setup,F = F,V= V,other_arguments = 0)
+
+
+        T = stop_gradient() do
+            typeof(CUDA.@allowscalar(mesh.dx[1]))
+        end
+
+        dims = mesh.dims
+
+        pad_q = padding(q,Tuple((1 for i in 1:dims)))
+
+
+        viscosity = T(viscosity)
+
+        D_q = viscosity * setup.O_adv.D(pad_q)
+
+        V_A_q = V .* setup.O_adv.A(pad_q)
+
+        C_q = setup.O_adv.C(padding(V_A_q,Tuple((1 for i in 1:dims))))
+
+
+        rhs = (- C_q) .+ D_q
+
+
+    end
+
+    return rhs
 end
 
 function gen_rhs(setup;F =0,Re = 1000,damping = 0)

@@ -14,7 +14,7 @@ using CUDA
 
 
 
-export reshape_for_local_SVD, carry_out_local_SVD, local_to_global_modes, compute_overlap_matrix, add_filter_to_modes, gen_projection_operators, true_W, true_R
+export reshape_for_local_SVD, carry_out_local_SVD, local_to_global_modes, compute_overlap_matrix, add_filter_to_modes, gen_projection_operators, true_W, true_R,projection_operators_struct
 
 
 

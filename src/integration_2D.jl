@@ -43,9 +43,7 @@ end
 function simulate(input0,mesh,dt,t_start,t_end,rhs;time_step_function=time_step,save_every = 1,other_arguments = 0,pre_allocate = false)
     use_GPU = mesh.use_GPU
 
-    if project_div
-        setup = gen_setup(mesh)
-    end
+
 
     dims = length(size(input0))-2
 
