@@ -56,7 +56,15 @@ function carry_out_local_SVD(input,MP;subtract_average = false)
     J = MP.J
     I = MP.I
     dims = MP.fine_mesh.dims
-    reshaped_input = reshape_for_local_SVD(input,MP,subtract_average = subtract_average)
+    if I[1] > 1
+        reshaped_input = reshape_for_local_SVD(input,MP,subtract_average = subtract_average)
+    else
+        if subtract_average
+            input .-= mean(input,dims = collect(1:dims))
+        end
+        reshaped_input = reshape(input,(prod(size(input)[1:dims]),prod(size(input)[dims+1:end])))
+    end
+
 
     vector_input = reshape(reshaped_input,(prod(size(reshaped_input)[1:end-1]),size(reshaped_input)[end]))
 

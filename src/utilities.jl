@@ -173,11 +173,11 @@ Compute the L2-norm of a given vector or array.
 A = zeros(5,5)
 L2 = compute_L2(A,average = true) # Returns a vector of length 5 containing the L2-norm for each column of A
 """
-function compute_L2(a;average = true)
+function compute_L2(a,b;average = true)
     if average
-        return mean(sqrt.(sum(a.^2,dims = 1)))
+        return mean(sqrt.(sum((a-b).^2 ./ (sum((b).^2,dims = 1)),dims = 1)))
     else
-        return sqrt.(sum(a.^2,dims = 1))
+        return sqrt.(sum((a-b).^2 ./ (sum((b).^2,dims = 1)),dims = 1))
     end
 end
 

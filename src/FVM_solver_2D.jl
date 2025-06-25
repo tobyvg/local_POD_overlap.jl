@@ -7,7 +7,7 @@ using Zygote
 
 
 
-export gen_setup,gen_rhs, project_divergence,gen_rhs_advection_equation,stop_gradient
+export gen_setup,gen_rhs, project_divergence,gen_rhs_advection_equation,stop_gradient, padding
 
 stop_gradient(f) = f()
 Zygote.@nograd stop_gradient
@@ -441,7 +441,7 @@ function gen_rhs_advection_equation(setup;V = 0,F =0,viscosity = 0)
     dims = setup.mesh.dims
 
     if F == 0
-        F = 0 * setup.mesh.omega
+        F = 0 * setup.mesh.omega[[(:) for i in 1:dims]...,1:1,:]
     end
 
     if V == 0
@@ -476,7 +476,7 @@ function gen_rhs_advection_equation(setup;V = 0,F =0,viscosity = 0)
         C_q = setup.O_adv.C(padding(V_A_q,Tuple((1 for i in 1:dims))))
 
 
-        rhs = (- C_q) .+ D_q
+        rhs = (- C_q) .+ D_q .+ F
 
 
     end

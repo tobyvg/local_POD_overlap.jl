@@ -10,8 +10,49 @@ using Zygote
 
 
 
-export generate_spectrum,construct_k,gen_random_field,gen_mesh,gen_mesh_pair,gen_coarse_from_fine_mesh, project_on_basis
+export generate_spectrum,construct_k,gen_random_field,gen_mesh,gen_mesh_pair,gen_coarse_from_fine_mesh, project_on_basis,linear_interpolation_2D
 
+
+function linear_interpolation_2D(snapshots,coarse_mesh,fine_mesh)
+    snapshots = padding(snapshots,(1,1))
+    H = CUDA.@allowscalar(coarse_mesh.dx[1])
+    h = CUDA.@allowscalar(fine_mesh.dx[1])
+    dims = fine_mesh.dims
+    x0 = [1/2*h for i in 1:dims]
+    X0 = [-1/2*H for i in 1:dims]
+    samples = size(snapshots)[dims+1:end]
+    output = zeros(size(fine_mesh.omega)[1:dims]...,samples...)
+
+
+
+    index_1 = size(fine_mesh.omega)[1]
+    index_2 = size(fine_mesh.omega)[2]
+
+    x = x0
+    for i in 1:index_1
+        for j in 1:index_2
+            x = x0 .+ [(i - 1) * h, (j-1)*h]
+            division = ((x .- X0) ./ H) .+ 1
+            INDEX = Int.(floor.( division ))
+            rest = division .- INDEX
+            #fractional_rest = rest ./ H
+
+            INDEXES = [INDEX,[INDEX[1]+1,INDEX[2]],[INDEX[1],INDEX[2] +1],[INDEX[1]+1,INDEX[2]+1]]
+            values = [snapshots[INDEX...,[(:) for k in 1:length(samples)]...] for INDEX in INDEXES]
+
+
+
+
+            weights = [[1-rest[1],1-rest[2]], [rest[1],1-rest[2]],[1-rest[1],rest[2]],[rest[1],rest[2]]]
+            weights = [prod(k) for k in weights]
+            weighted_average = weights' * values
+
+            output[i,j,[(:) for k in 1:length(samples) ]...] = weighted_average
+        end
+    end
+
+    return output
+end
 
 struct mesh_struct
     dims # 1D/2D

@@ -33,7 +33,7 @@ function time_step(input,mesh,t,dt,rhs;other_arguments = 0,method = "RK4")
 
 
 
-        return T(1/6*dt)*(k1 + 2*k2 + 2*k3 + k4)
+        return input + T(1/6*dt)*(k1 + 2*k2 + 2*k3 + k4)
 
 
     end
@@ -98,7 +98,7 @@ function simulate(input0,mesh,dt,t_start,t_end,rhs;time_step_function=time_step,
     end
     crashed = false
     @showprogress for i in 1:steps
-        input += time_step_function(input,mesh,t,dt,rhs;other_arguments = other_arguments)
+        input = time_step_function(input,mesh,t,dt,rhs;other_arguments = other_arguments)
 
 
 
